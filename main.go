@@ -14,10 +14,6 @@ import (
 	"github.com/microyahoo/fs_exporter/cmd"
 )
 
-// type ExporterCli struct {
-// 	config *pkg.Config
-// }
-
 type handler struct {
 	unfilteredHandler http.Handler
 	// exporterMetricsRegistry is a separate registry for the metrics about
@@ -27,16 +23,6 @@ type handler struct {
 	maxRequests             int
 	logger                  log.Logger
 }
-
-// func newCommand() (*cobra.Command, error) {
-// opts := newCommandOptions(pkg.NewConfig())
-
-// cmd := &cobra.Command{
-// 	Use:   "",
-// 	Short: "",
-// }
-// return cmd, nil
-// }
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -48,14 +34,8 @@ func main() {
 	}
 	logger.Info("Start file exporters")
 
-	// cmd, err := newCommand()
-	// if err != nil {
-	// 	logger.Fatal("command", zap.Any("error", err))
-	// }
-	// cmd.SetOut(os.Stdout)
 	rootCmd := cmd.NewFSExporterCommand()
 	cobra.CheckErr(rootCmd.Execute())
-	// cmd.Execute()
 
 	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 	// 	w.Write([]byte(`<html>

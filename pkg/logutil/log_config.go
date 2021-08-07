@@ -1,10 +1,9 @@
-package pkg
+package logutil
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/microyahoo/fs_exporter/pkg/logutil"
 	"go.uber.org/zap"
 )
 
@@ -56,7 +55,7 @@ func NewConfig() *LogConfig {
 		loggerMu:   new(sync.RWMutex),
 		logger:     nil,
 		LogOutputs: []string{DefaultLogOutput},
-		LogLevel:   logutil.DefaultLogLevel,
+		LogLevel:   DefaultLogLevel,
 	}
 	return cfg
 }
@@ -112,11 +111,11 @@ func (cfg *LogConfig) setupLogging() error {
 		}
 	}
 
-	copied := logutil.DefaultZapLoggerConfig
+	copied := DefaultZapLoggerConfig
 	copied.OutputPaths = outputPaths
 	copied.ErrorOutputPaths = errOutputPaths
 	// copied = logutil.MergeOutputPaths(copied)
-	copied.Level = zap.NewAtomicLevelAt(logutil.ConvertToZapLevel(cfg.LogLevel))
+	copied.Level = zap.NewAtomicLevelAt(ConvertToZapLevel(cfg.LogLevel))
 	if cfg.ZapLoggerBuilder == nil {
 		cfg.ZapLoggerBuilder = func(c *LogConfig) error {
 			var err error
