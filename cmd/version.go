@@ -19,10 +19,11 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("fs_exporter version is v0.1")
 	},
+	TraverseChildren: true,
 }
 
 func init() {
-	rootCmd.AddCommand(versionCmd)
+	// rootCmd.AddCommand(versionCmd)
 
 	// Here you will define your flags and configuration settings.
 

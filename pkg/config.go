@@ -9,16 +9,16 @@ import (
 )
 
 const (
-	DefaultName = "fs-exporter"
+	// DefaultName = "fs-exporter"
 
 	DefaultLogOutput = "default"
 	StdErrLogOutput  = "stderr"
 	StdOutLogOutput  = "stdout"
 )
 
-// Config holds the arguments for configuring an etcd server.
-type Config struct {
-	Name string `json:"name"`
+// LogConfig holds the arguments for configuring logger
+type LogConfig struct {
+	// Name string `json:"name"`
 
 	// LogLevel configures log level. Only supports debug, info, warn, error, panic, or fatal. Default 'info'.
 	LogLevel string `json:"log-level"`
@@ -31,7 +31,7 @@ type Config struct {
 	LogOutputs []string `json:"log-outputs"`
 
 	// ZapLoggerBuilder is used to build the zap logger.
-	ZapLoggerBuilder func(*Config) error
+	ZapLoggerBuilder func(*LogConfig) error
 
 	// logger logs server-side operations. The default is nil,
 	// and "setupLogging" must be called before starting server.
@@ -48,10 +48,10 @@ type Config struct {
 	// loggerWriteSyncer zapcore.WriteSyncer
 }
 
-// NewConfig creates a new Config populated with default values.
-func NewConfig() *Config {
-	cfg := &Config{
-		Name: DefaultName,
+// NewLogConfig creates a new Config populated with default values.
+func NewConfig() *LogConfig {
+	cfg := &LogConfig{
+		// Name: DefaultName,
 
 		loggerMu:   new(sync.RWMutex),
 		logger:     nil,
@@ -61,8 +61,8 @@ func NewConfig() *Config {
 	return cfg
 }
 
-// Validate ensures that '*embed.Config' fields are properly configured.
-func (cfg *Config) Validate() error {
+// Validate ensures that '*LogConfig' fields are properly configured.
+func (cfg *LogConfig) Validate() error {
 	if err := cfg.setupLogging(); err != nil {
 		return err
 	}
@@ -70,16 +70,16 @@ func (cfg *Config) Validate() error {
 }
 
 // GetLogger returns the logger.
-func (cfg Config) GetLogger() *zap.Logger {
+func (cfg LogConfig) GetLogger() *zap.Logger {
 	cfg.loggerMu.RLock()
 	l := cfg.logger
 	cfg.loggerMu.RUnlock()
 	return l
 }
 
-// setupLogging initializes etcd logging.
-// Must be called after flag parsing or finishing configuring embed.Config.
-func (cfg *Config) setupLogging() error {
+// setupLogging initializes logging.
+// Must be called after flag parsing or finishing configuring LogConfig.
+func (cfg *LogConfig) setupLogging() error {
 	if len(cfg.LogOutputs) == 0 {
 		cfg.LogOutputs = []string{DefaultLogOutput}
 	}
@@ -118,7 +118,7 @@ func (cfg *Config) setupLogging() error {
 	// copied = logutil.MergeOutputPaths(copied)
 	copied.Level = zap.NewAtomicLevelAt(logutil.ConvertToZapLevel(cfg.LogLevel))
 	if cfg.ZapLoggerBuilder == nil {
-		cfg.ZapLoggerBuilder = func(c *Config) error {
+		cfg.ZapLoggerBuilder = func(c *LogConfig) error {
 			var err error
 			c.logger, err = copied.Build()
 			if err != nil {

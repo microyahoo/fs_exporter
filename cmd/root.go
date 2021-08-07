@@ -4,31 +4,76 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/microyahoo/fs_exporter/pkg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+)
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "fs-exporter",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+type fsExporterOptions struct {
+	maxRequests int64
+	logConfig   *pkg.LogConfig
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+func newFSExporterOptions() *fsExporterOptions {
+	return &fsExporterOptions{
+		maxRequests: 64,
+		logConfig:   pkg.NewConfig(),
+	}
+}
+
+// NewFSExporterCommand returns a fs exporter command, it is a root command.
+func NewFSExporterCommand() *cobra.Command {
+	o := newFSExporterOptions()
+	// rootCmd represents the base command when called without any subcommands
+	cmds := &cobra.Command{
+		Use:   "fs-exporter",
+		Short: "An exporter for file systems",
+		// Long: `A longer description that spans multiple lines and likely contains
+		// examples and usage of using your application. For example:
+
+		// Cobra is a CLI library for Go that empowers applications.
+		// This application is a tool to generate the needed files
+		// to quickly create a Cobra application.`,
+
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			return initProfiling()
+		},
+		PersistentPostRunE: func(*cobra.Command, []string) error {
+			if err := flushProfiling(); err != nil {
+				return err
+			}
+			return nil
+		},
+
+		Run: func(cmd *cobra.Command, args []string) {
+			cobra.CheckErr(o.Run())
+		},
+	}
+	flags := cmds.PersistentFlags()
+	addProfilingFlags(flags)
+
+	cmds.Flags().Int64Var(&o.maxRequests, "max-requests", 64, "Source directory to read from")
+	cmds.Flags().StringVar(&o.logConfig.LogLevel, "log-level", "info", "log level")
+	cmds.Flags().StringSliceVar(&o.logConfig.LogOutputs, "log-outputs", []string{"stderr"}, "log outputs is a list of URLs or file paths to write logging output to.(default|stdout|stderr|file paths)")
+
+	cobra.CheckErr(o.logConfig.Validate())
+
+	// cmds.AddCommand(zfsCmd)
+	// cmds.AddCommand(glusterfsCmd)
+	cmds.AddCommand(versionCmd)
+
+	// opts := newCommandOptions(pkg.NewConfig())
+
+	return cmds
+}
+
+func (o *fsExporterOptions) Run() error {
+	fmt.Println("Run")
+	return nil
 }
 
 func init() {
@@ -38,11 +83,22 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.fs_exporter.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.fs_exporter.yaml)")
+	// rootCmd.PersistentFlags().StringP("author", "a", "YOUR NAME", "author name for copyright attribution")
+	// rootCmd.PersistentFlags().StringVarP(&userLicense, "license", "l", "", "name of license for the project")
+	// rootCmd.PersistentFlags().Bool("viper", true, "use Viper for configuration")
+	// rootCmd.Flags().StringVarP(&source, "source", "s", "", "Source directory to read from")
+	// rootCmd.MarkFlagRequired("source")
+	// rootCmd.MarkPersistentFlagRequired("region")
+
+	// viper.BindPFlag("author", rootCmd.PersistentFlags().Lookup("author"))
+	// viper.BindPFlag("useViper", rootCmd.PersistentFlags().Lookup("viper"))
+	// viper.SetDefault("author", "Liang Zheng<zhengliang0901@gmail.com>")
+	// viper.SetDefault("license", "apache")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.

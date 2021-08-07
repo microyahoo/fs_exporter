@@ -2,20 +2,21 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/microyahoo/fs_exporter/cmd"
-	"github.com/microyahoo/fs_exporter/pkg"
 )
 
-type ExporterCli struct {
-	config *pkg.Config
-}
+// type ExporterCli struct {
+// 	config *pkg.Config
+// }
 
 type handler struct {
 	unfilteredHandler http.Handler
@@ -27,18 +28,20 @@ type handler struct {
 	logger                  log.Logger
 }
 
-func newCommand() (*cobra.Command, error) {
-	// opts := newCommandOptions(pkg.NewConfig())
+// func newCommand() (*cobra.Command, error) {
+// opts := newCommandOptions(pkg.NewConfig())
 
-	cmd := &cobra.Command{
-		Use:   "",
-		Short: "",
-	}
-	return cmd, nil
-}
+// cmd := &cobra.Command{
+// 	Use:   "",
+// 	Short: "",
+// }
+// return cmd, nil
+// }
 
 func main() {
-	var metricsPath *string
+	rand.Seed(time.Now().UnixNano())
+
+	// var metricsPath *string
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("Failed to create a loggger: %s", err)
@@ -50,16 +53,19 @@ func main() {
 	// 	logger.Fatal("command", zap.Any("error", err))
 	// }
 	// cmd.SetOut(os.Stdout)
-	cmd.Execute()
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-			<head><title>File Exporters</title></head>
-			<body>
-			<h1>File Exporters</h1>
-			<p><a href="` + *metricsPath + `">Metrics</a></p>
-			</body>
-			</html>`))
-	})
+	rootCmd := cmd.NewFSExporterCommand()
+	cobra.CheckErr(rootCmd.Execute())
+	// cmd.Execute()
+
+	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Write([]byte(`<html>
+	// 		<head><title>File Exporters</title></head>
+	// 		<body>
+	// 		<h1>File Exporters</h1>
+	// 		<p><a href="` + *metricsPath + `">Metrics</a></p>
+	// 		</body>
+	// 		</html>`))
+	// })
 
 	// closeC := pkg.NewCloseNotifier()
 	// c := make(chan os.Signal, 1)
