@@ -36,7 +36,6 @@ func newFSExporterOptions() *fsExporterOptions {
 // NewFSExporterCommand returns a fs exporter command, it is a root command.
 func NewFSExporterCommand() *cobra.Command {
 	o := newFSExporterOptions()
-	// rootCmd represents the base command when called without any subcommands
 	cmds := &cobra.Command{
 		Use:   "fs-exporter",
 		Short: "An exporter for file systems",
@@ -120,19 +119,30 @@ type handler struct {
 
 // ServeHTTP implements http.Handler.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fsc := collector.NewFSCollector(h.logger)
+	handler, err := h.innerHandler()
+	if err != nil {
+		h.logger.Error("Couldn't create metrics handler:", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Couldn't create metrics handler: %s", err)))
+		return
+	}
+	handler.ServeHTTP(w, r)
+}
+
+func (h *handler) innerHandler() (http.Handler, error) {
+	fsc, err := collector.NewFSCollector(h.logger)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create collector: %s", err)
+	}
 
 	for n := range fsc.Collectors {
-		h.logger.Info("", zap.String("collector", n))
+		h.logger.Info("Collector", zap.String("collector", n))
 	}
 
 	rgst := prometheus.NewRegistry()
-	// rgst.MustRegister(version.NewCollector("node_exporter"))
 	if err := rgst.Register(fsc); err != nil {
-		h.logger.Error("Couldn't create filtered metrics handler:", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Couldn't create filtered metrics handler: %s", err)))
-		return
+		h.logger.Error("Couldn't register collector:", zap.Error(err))
+		return nil, err
 	}
 	handler := promhttp.HandlerFor(
 		prometheus.Gatherers{rgst},
@@ -143,7 +153,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Registry:            h.exporterMetricsRegistry,
 		},
 	)
-	handler.ServeHTTP(w, r)
+	return handler, nil
 }
 
 func init() {

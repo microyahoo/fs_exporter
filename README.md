@@ -4,9 +4,11 @@
 >
 > The overall structure of the code refers to the [node_exporter], where the cli part refers to [k8s] and the log part refers to [etcd]. 
 
-file system exporter for Prometheus
-- GlusterFS
-- ZFS
+1. file system exporter for Prometheus
+  - GlusterFS
+  - ZFS
+
+2. The fs-exporter listens on HTTP port 9097 by default. See the --help output for more options.
 
 # References
 - [node_exporter]

@@ -30,16 +30,18 @@ var (
 
 var (
 	collectorMutex        sync.Mutex
+	factoryMutex          sync.Mutex
 	initializedCollectors = make(map[string]Collector)
+	collectorFactories    = make(map[string]func(*zap.Logger) (Collector, error))
 )
 
-func RegisterCollector(name string, collector Collector) {
-	collectorMutex.Lock()
-	defer collectorMutex.Unlock()
-	if _, ok := initializedCollectors[name]; ok {
+func registerCollector(name string, factory func(*zap.Logger) (Collector, error)) {
+	factoryMutex.Lock()
+	defer factoryMutex.Unlock()
+	if _, ok := collectorFactories[name]; ok {
 		panic(fmt.Sprintf("The collector of %s has already been registered", name))
 	}
-	initializedCollectors[name] = collector
+	collectorFactories[name] = factory
 }
 
 // Collector is the interface a collector has to implement.
@@ -55,18 +57,27 @@ type FSCollector struct {
 }
 
 // NewFSCollector creates a new fs collector
-func NewFSCollector(logger *zap.Logger) *FSCollector {
+func NewFSCollector(logger *zap.Logger) (*FSCollector, error) {
 	collectors := make(map[string]Collector)
 
 	collectorMutex.Lock()
 	defer collectorMutex.Unlock()
-	for n, c := range initializedCollectors {
-		collectors[n] = c
+	for name, factory := range collectorFactories {
+		if c, ok := initializedCollectors[name]; ok {
+			collectors[name] = c
+		} else {
+			c, err := factory(logger)
+			if err != nil {
+				return nil, err
+			}
+			collectors[name] = c
+			initializedCollectors[name] = c
+		}
 	}
 	return &FSCollector{
 		Collectors: collectors,
 		logger:     logger,
-	}
+	}, nil
 }
 
 // Describe implements the prometheus.Collector interface.
