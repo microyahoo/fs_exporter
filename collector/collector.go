@@ -2,6 +2,7 @@ package collector
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,6 +28,20 @@ var (
 	)
 )
 
+var (
+	collectorMutex        sync.Mutex
+	initializedCollectors = make(map[string]Collector)
+)
+
+func RegisterCollector(name string, collector Collector) {
+	collectorMutex.Lock()
+	defer collectorMutex.Unlock()
+	if _, ok := initializedCollectors[name]; ok {
+		panic(fmt.Sprintf("The collector of %s has already been registered", name))
+	}
+	initializedCollectors[name] = collector
+}
+
 // Collector is the interface a collector has to implement.
 type Collector interface {
 	// Get new metrics and expose them via prometheus registry.
@@ -41,8 +56,16 @@ type FSCollector struct {
 
 // NewFSCollector creates a new fs collector
 func NewFSCollector(logger *zap.Logger) *FSCollector {
+	collectors := make(map[string]Collector)
+
+	collectorMutex.Lock()
+	defer collectorMutex.Unlock()
+	for n, c := range initializedCollectors {
+		collectors[n] = c
+	}
 	return &FSCollector{
-		logger: logger,
+		Collectors: collectors,
+		logger:     logger,
 	}
 }
 
@@ -58,14 +81,14 @@ func (n *FSCollector) Collect(ch chan<- prometheus.Metric) {
 	wg.Add(len(n.Collectors))
 	for name, c := range n.Collectors {
 		go func(name string, c Collector) {
-			execute(name, c, ch, n.logger)
-			wg.Done()
+			defer wg.Done()
+			n.execute(name, c, ch)
 		}(name, c)
 	}
 	wg.Wait()
 }
 
-func execute(name string, c Collector, ch chan<- prometheus.Metric, logger *zap.Logger) {
+func (n *FSCollector) execute(name string, c Collector, ch chan<- prometheus.Metric) {
 	begin := time.Now()
 	err := c.Update(ch)
 	duration := time.Since(begin)
@@ -73,14 +96,14 @@ func execute(name string, c Collector, ch chan<- prometheus.Metric, logger *zap.
 
 	if err != nil {
 		if IsNoDataError(err) {
-			logger.Debug("collector returned no data", zap.String("name", name),
+			n.logger.Debug("collector returned no data", zap.String("name", name),
 				zap.Float64("duration_seconds", duration.Seconds()), zap.Error(err))
 		} else {
-			logger.Error("collector failed", zap.String("name", name), zap.Float64("duration_seconds", duration.Seconds()), zap.Error(err))
+			n.logger.Error("collector failed", zap.String("name", name), zap.Float64("duration_seconds", duration.Seconds()), zap.Error(err))
 		}
 		success = 0
 	} else {
-		logger.Debug("collector succeeded", zap.String("name", name), zap.Float64("duration_seconds", duration.Seconds()))
+		n.logger.Debug("collector succeeded", zap.String("name", name), zap.Float64("duration_seconds", duration.Seconds()))
 		success = 1
 	}
 	ch <- prometheus.MustNewConstMetric(scrapeDurationDesc, prometheus.GaugeValue, duration.Seconds(), name)

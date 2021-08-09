@@ -69,7 +69,7 @@ func (cfg *LogConfig) Validate() error {
 }
 
 // GetLogger returns the logger.
-func (cfg LogConfig) GetLogger() *zap.Logger {
+func (cfg *LogConfig) GetLogger() *zap.Logger {
 	cfg.loggerMu.RLock()
 	l := cfg.logger
 	cfg.loggerMu.RUnlock()

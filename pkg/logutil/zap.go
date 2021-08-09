@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultLogLevel defines default log level
-var DefaultLogLevel = "debug"
+var DefaultLogLevel = "info"
 
 // ConvertToZapLevel converts log level string to zapcore.Level.
 func ConvertToZapLevel(lvl string) zapcore.Level {

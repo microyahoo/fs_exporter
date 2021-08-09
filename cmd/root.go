@@ -59,12 +59,11 @@ func NewFSExporterCommand() *cobra.Command {
 	addProfilingFlags(flags)
 
 	cmds.Flags().Int64Var(&o.maxRequests, "web.max-requests", 40, "Maximum number of parallel scrape requests. Use 0 to disable.")
-	cmds.Flags().StringVar(&o.logConfig.LogLevel, "log-level", "info", "log level")
+	cmds.Flags().StringVar(&o.logConfig.LogLevel, "log.level", "info", "log level")
 	cmds.Flags().StringVar(&o.listenAddress, "web.listen-address", ":9097", "Address to listen on for telemetry")
 	cmds.Flags().StringVar(&o.metricsPath, "web.telemetry-path", "/metrics", "Path under which to expose metrics")
-	cmds.Flags().StringSliceVar(&o.logConfig.LogOutputs, "log-outputs", []string{"stderr"}, "log outputs is a list of URLs or file paths to write logging output to.(default|stdout|stderr|file paths)")
-
-	cobra.CheckErr(o.logConfig.Validate())
+	cmds.Flags().StringSliceVar(&o.logConfig.LogOutputs, "log.outputs", []string{"stderr"},
+		"log outputs is a list of URLs or file paths to write logging output to.(default|stdout|stderr|file paths)")
 
 	cmds.AddCommand(versionCmd)
 
@@ -72,22 +71,25 @@ func NewFSExporterCommand() *cobra.Command {
 }
 
 func (o *fsExporterOptions) Run() error {
+	cobra.CheckErr(o.logConfig.Validate())
 	logger := o.logConfig.GetLogger()
 	logger.Info("Starting fs exporter")
-	fmt.Printf("%#v\n", o)
-	fmt.Printf("%#v\n", o.logConfig)
+	logger.Debug("fs exporter options", zap.String("listen-address", o.listenAddress),
+		zap.String("metric-path", o.metricsPath), zap.Int64("max-requests", o.maxRequests))
+	logger.Debug("fs exporter logger options", zap.String("log-level", o.logConfig.LogLevel),
+		zap.Any("log-outputs", o.logConfig.LogOutputs))
 
 	http.Handle(o.metricsPath, newHandler(o.maxRequests, logger))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-			<head><title>File Exporters</title></head>
+			<head><title>File system Exporter</title></head>
 			<body>
-			<h1>File Exporters</h1>
+			<h1>File system Exporter</h1>
 			<p><a href="` + o.metricsPath + `">Metrics</a></p>
 			</body>
 			</html>`))
 	})
-	logger.Info("Listening on address", zap.String("", o.listenAddress))
+	logger.Info("Listening on address", zap.String("listen-address", o.listenAddress))
 	if err := http.ListenAndServe(o.listenAddress, nil); err != nil {
 		logger.Error("error", zap.Error(err))
 	}
@@ -120,6 +122,10 @@ type handler struct {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fsc := collector.NewFSCollector(h.logger)
 
+	for n := range fsc.Collectors {
+		h.logger.Info("", zap.String("collector", n))
+	}
+
 	rgst := prometheus.NewRegistry()
 	// rgst.MustRegister(version.NewCollector("node_exporter"))
 	if err := rgst.Register(fsc); err != nil {
@@ -129,12 +135,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler := promhttp.HandlerFor(
-		prometheus.Gatherers{h.exporterMetricsRegistry, rgst},
+		prometheus.Gatherers{rgst},
 		promhttp.HandlerOpts{
 			// ErrorLog:            stdlog.New(log.NewStdlibAdapter(level.Error(h.logger)), "", 0),
 			ErrorHandling:       promhttp.ContinueOnError,
 			MaxRequestsInFlight: int(h.maxRequests),
-			Registry:            h.exporterMetricsRegistry,
+			// Registry:            h.exporterMetricsRegistry,
 		},
 	)
 	handler.ServeHTTP(w, r)
