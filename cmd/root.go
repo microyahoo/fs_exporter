@@ -15,15 +15,23 @@ import (
 	"github.com/microyahoo/fs_exporter/pkg/logutil"
 )
 
+const (
+	// GlusterCmd is the default path to gluster binary
+	GlusterCmd = "/usr/sbin/gluster"
+)
+
 var (
 	cfgFile string
 )
 
+// fsExporterOptions defines the options of file system
 type fsExporterOptions struct {
 	maxRequests   int64
-	logConfig     *logutil.LogConfig
 	listenAddress string
 	metricsPath   string
+
+	// log
+	logConfig *logutil.LogConfig
 }
 
 func newFSExporterOptions() *fsExporterOptions {
@@ -64,11 +72,17 @@ func NewFSExporterCommand() *cobra.Command {
 	cmds.Flags().StringSliceVar(&o.logConfig.LogOutputs, "log.outputs", []string{"stderr"},
 		"log outputs is a list of URLs or file paths to write logging output to.(default|stdout|stderr|file paths)")
 
+	cmds.Flags().StringVar(&collector.GlusterExecPath, "gluster.executable-path", GlusterCmd, "Path to glusterfs executable")
+	cmds.Flags().StringSliceVar(&collector.GlusterVolumes, "gluster.volumes", []string{"_all"}, fmt.Sprintf("Comma separated volume names: vol1,vol2,vol3. Default is '%s' to scrape all metrics", "_all"))
+	cmds.Flags().BoolVar(&collector.GlusterProfile, "gluster.profile", false, "Enable gluster profiling reports")
+	cmds.Flags().BoolVar(&collector.GlusterQuota, "gluster.quota", false, "Enable gluster quota reports")
+
 	cmds.AddCommand(versionCmd)
 
 	return cmds
 }
 
+// Run scrapes the metrics of file systems
 func (o *fsExporterOptions) Run() error {
 	cobra.CheckErr(o.logConfig.Validate())
 	logger := o.logConfig.GetLogger()
@@ -98,21 +112,12 @@ func (o *fsExporterOptions) Run() error {
 
 func newHandler(maxRequests int64, logger *zap.Logger) *handler {
 	return &handler{
-		// exporterMetricsRegistry: prometheus.NewRegistry(),
 		maxRequests: maxRequests,
 		logger:      logger,
 	}
 }
 
 type handler struct {
-	// unfilteredHandler http.Handler
-
-	// exporterMetricsRegistry is a separate registry for the metrics about
-	// the exporter itself.
-	// exporterMetricsRegistry *prometheus.Registry
-
-	// includeExporterMetrics  bool
-
 	maxRequests int64
 	logger      *zap.Logger
 }
@@ -147,10 +152,8 @@ func (h *handler) innerHandler() (http.Handler, error) {
 	handler := promhttp.HandlerFor(
 		prometheus.Gatherers{rgst},
 		promhttp.HandlerOpts{
-			// ErrorLog:            stdlog.New(log.NewStdlibAdapter(level.Error(h.logger)), "", 0),
 			ErrorHandling:       promhttp.ContinueOnError,
 			MaxRequestsInFlight: int(h.maxRequests),
-			// Registry:            h.exporterMetricsRegistry,
 		},
 	)
 	return handler, nil

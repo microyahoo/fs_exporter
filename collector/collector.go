@@ -121,6 +121,15 @@ func (n *FSCollector) execute(name string, c Collector, ch chan<- prometheus.Met
 	ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, success, name)
 }
 
+type typedDesc struct {
+	desc      *prometheus.Desc
+	valueType prometheus.ValueType
+}
+
+func (d *typedDesc) mustNewConstMetric(value float64, labels ...string) prometheus.Metric {
+	return prometheus.MustNewConstMetric(d.desc, d.valueType, value, labels...)
+}
+
 // ErrNoData indicates the collector found no data to collect, but had no other error.
 var ErrNoData = errors.New("collector returned no data")
 
