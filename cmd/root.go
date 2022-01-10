@@ -15,11 +15,6 @@ import (
 	"github.com/microyahoo/fs_exporter/pkg/logutil"
 )
 
-const (
-	// GlusterCmd is the default path to gluster binary
-	GlusterCmd = "/usr/sbin/gluster"
-)
-
 var (
 	cfgFile string
 )
@@ -63,7 +58,9 @@ func NewFSExporterCommand() *cobra.Command {
 		},
 	}
 	flags := cmds.PersistentFlags()
+
 	addProfilingFlags(flags)
+	collector.AddGlusterFlags(flags)
 
 	cmds.Flags().Int64Var(&o.maxRequests, "web.max-requests", 40, "Maximum number of parallel scrape requests. Use 0 to disable.")
 	cmds.Flags().StringVar(&o.logConfig.LogLevel, "log.level", "info", "log level")
@@ -71,11 +68,6 @@ func NewFSExporterCommand() *cobra.Command {
 	cmds.Flags().StringVar(&o.metricsPath, "web.telemetry-path", "/metrics", "Path under which to expose metrics")
 	cmds.Flags().StringSliceVar(&o.logConfig.LogOutputs, "log.outputs", []string{"stderr"},
 		"log outputs is a list of URLs or file paths to write logging output to.(default|stdout|stderr|file paths)")
-
-	cmds.Flags().StringVar(&collector.GlusterExecPath, "gluster.executable-path", GlusterCmd, "Path to glusterfs executable")
-	cmds.Flags().StringSliceVar(&collector.GlusterVolumes, "gluster.volumes", []string{"_all"}, fmt.Sprintf("Comma separated volume names: vol1,vol2,vol3. Default is '%s' to scrape all metrics", "_all"))
-	cmds.Flags().BoolVar(&collector.GlusterProfile, "gluster.profile", false, "Enable gluster profiling reports")
-	cmds.Flags().BoolVar(&collector.GlusterQuota, "gluster.quota", false, "Enable gluster quota reports")
 
 	cmds.AddCommand(versionCmd)
 
